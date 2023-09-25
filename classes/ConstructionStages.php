@@ -50,11 +50,19 @@ class ConstructionStages
 
 	public function post(ConstructionStagesCreate $data)
 	{
+		$validationErrors = $this->validateConstructionStageData((array)$data);
+
+
+		if (!empty($validationErrors)) {
+			return ['error' => 'Validation failed', 'validationErrors' => $validationErrors];
+		}
+
 		$stmt = $this->db->prepare("
 			INSERT INTO construction_stages
 			    (name, start_date, end_date, duration, durationUnit, color, externalId, status)
 			    VALUES (:name, :start_date, :end_date, :duration, :durationUnit, :color, :externalId, :status)
 			");
+
 		$stmt->execute([
 			'name' => $data->name,
 			'start_date' => $data->startDate,
@@ -71,6 +79,8 @@ class ConstructionStages
     public function patch(ConstructionStagesUpdate $data, $id)
     {
 
+
+		
 
         $existingStage = ($this->getSingle($id))[0];
 	
@@ -148,6 +158,57 @@ class ConstructionStages
         $stmt->execute(['id' => $id]);
 
         return ['message' => 'Construction stage marked as DELETED'];
+    }
+
+
+	public function validateConstructionStageData($data)
+    {
+
+        $errors = [];
+
+        // Validate 'name' field
+        if (isset($data['name']) && strlen($data['name']) > 255) {
+            $errors['name'] = 'Name must be a maximum of 255 characters in length.';
+        }
+
+        // Validate 'startDate' field
+        if (isset($data['startDate']) && !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $data['startDate'])) {
+            $errors['startDate'] = 'Invalid startDate format. Use ISO8601 format (e.g., 2022-12-31T14:59:00Z).';
+        }
+
+        // Validate 'endDate' field
+        if (isset($data['endDate']) && $data['endDate'] !== null) {
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/', $data['endDate'])) {
+                $errors['endDate'] = 'Invalid endDate format. Use ISO8601 format (e.g., 2022-12-31T14:59:00Z).';
+            } elseif (strtotime($data['endDate']) <= strtotime($data['endDate'])) {
+                $errors['endDate'] = 'End date must be later than the start date.';
+            }
+        }
+
+        // Validate 'durationUnit' field
+        $validDurationUnits = ['HOURS', 'DAYS', 'WEEKS'];
+        if (isset($data['durationUnit']) && !in_array($data['durationUnit'], $validDurationUnits)) {
+            $errors['durationUnit'] = 'Invalid durationUnit. Must be one of HOURS, DAYS, WEEKS.';
+        }
+
+        // Validate 'color' field
+        if (isset($data['color']) && !preg_match('/^#[0-9A-Fa-f]{6}$/', $data['color'])) {
+            $errors['color'] = 'Invalid color format. Use a valid HEX color (e.g., #FF0000).';
+        }
+
+        // Validate 'externalId' field
+        if (isset($data['externalId']) && strlen($data['externalId']) > 255) {
+            $errors['externalId'] = 'External ID must be a maximum of 255 characters in length.';
+        }
+
+        // Validate 'status' field
+        $validStatusValues = ['NEW', 'PLANNED', 'DELETED'];
+        if (isset($data['status']) && !in_array($data['status'], $validStatusValues)) {
+            $errors['status'] = 'Invalid status. Must be one of NEW, PLANNED, DELETED.';
+        }
+
+        // Return validation errors or an empty array if there are none
+        return $errors;
     }
 
 }
