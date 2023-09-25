@@ -67,4 +67,87 @@ class ConstructionStages
 		]);
 		return $this->getSingle($this->db->lastInsertId());
 	}
+
+    public function patch(ConstructionStagesUpdate $data, $id)
+    {
+
+
+        $existingStage = ($this->getSingle($id))[0];
+	
+
+        if (!$existingStage) {
+            return ['error' => 'Construction stage not found'];
+        }
+
+        if (property_exists($data,'name')) {
+            $existingStage['name'] = $data->name;
+        }
+        if (property_exists($data,'startDate')) {
+            $existingStage['startDate'] = $data->startDate;
+        }
+        if (property_exists($data,'endDate')) {
+            $existingStage['endDate'] = $data->endDate;
+        }
+        if (property_exists($data,'duration')) {
+            $existingStage['duration'] = $data->duration;
+        }
+        if (property_exists($data,'durationUnit')) {
+            $existingStage['durationUnit'] = $data->durationUnit;
+        }
+        if (property_exists($data,'color')) {
+            $existingStage['color'] = $data->color;
+        }
+        if (property_exists($data,'externalId')) {
+            $existingStage['externalId'] = $data->externalId;
+        }
+
+        if (property_exists($data,'status')) {
+            $allowedStatuses = ['NEW', 'PLANNED', 'DELETED'];
+            if (!in_array($data->status, $allowedStatuses)) {
+                return ['error' => 'Invalid status value'];
+            }
+            $existingStage['status'] = $data->status;
+        }
+		
+		
+
+        $stmt = $this->db->prepare("
+            UPDATE construction_stages
+            SET
+                name = :name,
+                start_date = :startDate,
+                end_date = :endDate,
+                duration = :duration,
+                durationUnit = :durationUnit,
+                color = :color,
+                externalId = :externalId,
+                status = :status
+            WHERE ID = :id
+        ");
+
+		
+        $stmt->execute((array) $existingStage );
+
+        return $this->getSingle($id);
+    }
+
+    public function delete($id)
+    {
+
+        $existingStage = $this->getSingle($id);
+
+        if (!$existingStage) {
+            return ['error' => 'Construction stage not found'];
+        }
+
+        $stmt = $this->db->prepare("
+            UPDATE construction_stages
+            SET status = 'DELETED'
+            WHERE ID = :id
+        ");
+        $stmt->execute(['id' => $id]);
+
+        return ['message' => 'Construction stage marked as DELETED'];
+    }
+
 }
